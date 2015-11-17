@@ -22,8 +22,6 @@ require 'openssl'
 KEY_REF_APKS = {:pk => "Settings", :sk => "ContactsProvider", :rk => "HTMLViewer",
             :mk => "DownloadProvider" }
 
-SIGN_APK_BIN = String.new
-
 def get_apk_sha1(apk)
     cmd = "keytool -printcert -jarfile " << apk
     result = `#{cmd}`
@@ -49,7 +47,7 @@ def resign_apks(key_apk_name, key)
   new_platform_key = OpenSSL::Digest::SHA1.new(cert.to_der).to_s.scan(/../).map{ |s| s.upcase }.join(":")
   puts "Old platform key:" << old_platform_key
   puts "New plaform key: " << new_platform_key
-
+  raise "#{key} is the same as #{key_apk_name}!" if new_platform_key == old_platform_key
   $files.select { |k, v| v == old_platform_key }.keys.each do |f|
       resign_apk(f, key)
   end
@@ -61,8 +59,10 @@ $files = {}
 
 JAVA_VERSION = `java -version 2>&1`[/"(.*)"/,1]
 raise "Java is not installed!" unless JAVA_VERSION
-SIGN_APK_BIN = (JAVA_VERSION[2] == 6 ? "SignApkv2.jar" : "SignApkv2_java7")
+raise "keytool not found!" if `which keytool`.empty?
+raise "zipalign not found!" if `which zipalign`.empty?
 
+SIGN_APK_BIN = (JAVA_VERSION[2] == 6 ? "SignApkv2.jar" : "SignApkv2_java7.jar")
   OptionParser.new do |opts|
     opts.banner = "Usage: pack [options]"
     opts.separator "Options:"
@@ -80,7 +80,7 @@ SIGN_APK_BIN = (JAVA_VERSION[2] == 6 ? "SignApkv2.jar" : "SignApkv2_java7")
     puts "Resigning in: " << File.join($options[:dir], "**/", "*.apk")
     print "Checking old signatures..."
     Dir.glob(File.join($options[:dir], "**/", "*.apk")) do |f|
-      print "\rChecking old signatures..." << File.basename(f) << "\t\t"
+      print "\rChecking old signatures..." << File.basename(f) << " "*16
       $files[f] = get_apk_sha1(f)
     end
     puts
