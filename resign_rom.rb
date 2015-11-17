@@ -36,6 +36,7 @@ def resign_apk(apk, key)
   system(cmd)
   cmd2 = "zipalign -vf 4 %s %s" % [tmpfile, apk]
   system(cmd2)
+  File.delete tmpfile
 end
 
 def resign_apks(key_apk_name, key)
